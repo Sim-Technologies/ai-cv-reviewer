@@ -4,6 +4,38 @@ from typing import Optional
 from app.models import CVReviewState, ExtractedCVData, AnalysisResult, Feedback, Recommendation
 from streamlit_pdf_viewer import pdf_viewer
 
+
+def dict_to_markdown(data: dict, indent: int = 0) -> str:
+    """Convert dictionary to markdown key-value format."""
+    if not data:
+        return "No data available"
+    
+    markdown_lines = []
+    indent_str = "  " * indent
+    
+    for key, value in data.items():
+        # Format the key
+        formatted_key = key.replace('_', ' ').title()
+        
+        if isinstance(value, dict):
+            # Nested dictionary
+            markdown_lines.append(f"{indent_str}**{formatted_key}:**")
+            markdown_lines.append(dict_to_markdown(value, indent + 1))
+        elif isinstance(value, list):
+            # List
+            markdown_lines.append(f"{indent_str}**{formatted_key}:**")
+            for item in value:
+                if isinstance(item, dict):
+                    markdown_lines.append(dict_to_markdown(item, indent + 1))
+                else:
+                    markdown_lines.append(f"{indent_str}  • {item}")
+        else:
+            # Simple value
+            markdown_lines.append(f"{indent_str}**{formatted_key}:** {value}")
+    
+    return "\n".join(markdown_lines)
+
+
 def render_about_section():
     """Render the about section."""
     # About section
@@ -212,19 +244,19 @@ def render_analysis_results(analysis: AnalysisResult):
     # Detailed analysis
     if analysis.experience_analysis:
         with st.expander("📈 Experience Analysis"):
-            st.json(analysis.experience_analysis)
+            st.markdown(dict_to_markdown(analysis.experience_analysis))
     
     if analysis.skills_analysis:
         with st.expander("🛠️ Skills Analysis"):
-            st.json(analysis.skills_analysis)
+            st.markdown(dict_to_markdown(analysis.skills_analysis))
     
     if analysis.education_analysis:
         with st.expander("🎓 Education Analysis"):
-            st.json(analysis.education_analysis)
+            st.markdown(dict_to_markdown(analysis.education_analysis))
     
     if analysis.market_alignment:
         with st.expander("🌐 Market Alignment"):
-            st.json(analysis.market_alignment)
+            st.markdown(dict_to_markdown(analysis.market_alignment))
 
 
 def render_feedback(feedback: Feedback):
@@ -343,22 +375,41 @@ def render_download_section(state: CVReviewState):
 def render_complete_results(state: CVReviewState):
     """Render complete results section."""
     if state.processing_status == "complete":
-
-        # Render each section
-        if state.extracted_data:
-            render_extracted_data(state.extracted_data)
-        
-        if state.analysis_results:
-            render_analysis_results(state.analysis_results)
-        
-        if state.feedback:
-            render_feedback(state.feedback)
-        
-        if state.recommendations:
-            render_recommendations(state.recommendations)
-        
-        # Download section
-        render_download_section(state)
+        # Create a container with fixed height and scrolling
+        with st.container():
+            st.markdown("""
+            <style>
+            .results-container {
+                height: 600px;
+                overflow-y: auto;
+                border: 1px solid #ddd;
+                border-radius: 5px;
+                padding: 20px;
+                margin: 10px 0;
+            }
+            </style>
+            """, unsafe_allow_html=True)
+            
+            with st.container():
+                st.markdown('<div class="results-container">', unsafe_allow_html=True)
+                
+                # Render each section
+                if state.extracted_data:
+                    render_extracted_data(state.extracted_data)
+                
+                if state.analysis_results:
+                    render_analysis_results(state.analysis_results)
+                
+                if state.feedback:
+                    render_feedback(state.feedback)
+                
+                if state.recommendations:
+                    render_recommendations(state.recommendations)
+                
+                # Download section
+                render_download_section(state)
+                
+                st.markdown('</div>', unsafe_allow_html=True)
     
     elif state.errors:
         render_errors(state.errors) 
