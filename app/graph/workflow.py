@@ -1,5 +1,5 @@
 from typing import Dict, Any, AsyncGenerator
-import asyncio
+
 from langgraph.graph import StateGraph, END
 from app.models import CVReviewState
 from app.agents.extraction_agent import ExtractionAgent
@@ -97,7 +97,7 @@ class CVReviewWorkflow:
     
     async def _run_workflow(self) -> AsyncGenerator[CVReviewState, None]:
         """Run the CV review workflow."""
-        async for step in self.workflow.astream(self.state):
+        async for step in self._workflow.astream(self.state):
             self._set_state_from_step(step)
             yield self.state
 
@@ -121,8 +121,8 @@ class CVReviewWorkflow:
 
         except Exception as e:
             error_state = CVReviewState(
-                file_name=file_name,
-                file_content=file_content,
+                file_name=self.state.file_name,
+                file_content=self.state.file_content,
                 processing_status="failed",
                 errors=[f"Workflow execution failed: {str(e)}"]
             )
