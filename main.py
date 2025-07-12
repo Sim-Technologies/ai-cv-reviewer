@@ -9,7 +9,7 @@ from app.ui.components import (
     render_processing_actions
 )
 from app.utils.llm_config import validate_api_key
-from app.graph.workflow import run_cv_review_async
+from app.graph.workflow import CVReviewWorkflow
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -96,10 +96,9 @@ def main():
                         
                         # Run CV review workflow asynchronously
                         async def process_cv():
-                            final_result = None
-                            async for state in run_cv_review_async(uploaded_file):
-                                final_result = state
-                                
+                            workflow = CVReviewWorkflow(uploaded_file)
+
+                            async for state in workflow.run_async():
                                 # Update progress based on status
                                 if state.processing_status == "processed_file_complete":
                                     st.session_state.progress = 15
@@ -127,7 +126,7 @@ def main():
                                 # Small delay to show progress
                                 await asyncio.sleep(0.5)
                             
-                            return final_result
+                            return workflow.state
                         
                         # Run the async function
                         result = asyncio.run(process_cv())

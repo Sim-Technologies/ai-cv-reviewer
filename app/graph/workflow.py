@@ -9,121 +9,122 @@ from app.agents.recommendation_agent import RecommendationAgent
 from app.utils.file_processor import process_uploaded_file
 
 
-def create_cv_review_workflow():
-    """Create the CV review workflow using LangGraph."""
+class CVReviewWorkflow:
+    """CV Review workflow using LangGraph for orchestration."""
     
-    # Initialize agents
-    extraction_agent = ExtractionAgent()
-    analysis_agent = AnalysisAgent()
-    feedback_agent = FeedbackAgent()
-    recommendation_agent = RecommendationAgent()
-    
-    # Create workflow
-    workflow = StateGraph(CVReviewState)
-    
-    # Add nodes
-    workflow.add_node("extract", extraction_agent.process)
-    workflow.add_node("analyze", analysis_agent.process)
-    workflow.add_node("feedback", feedback_agent.process)
-    workflow.add_node("recommend", recommendation_agent.process)
-    
-    # Set entry point
-    workflow.set_entry_point("extract")
-    
-    # Add edges
-    workflow.add_edge("extract", "analyze")
-    workflow.add_edge("analyze", "feedback")
-    workflow.add_edge("feedback", "recommend")
-    workflow.add_edge("recommend", END)
-    
-    # Add conditional edges for error handling
-    def should_continue(state: CVReviewState) -> str:
-        """Determine if workflow should continue or end due to errors."""
-        if state.errors:
-            return END
-        return "analyze"
-    
-    def should_continue_after_analysis(state: CVReviewState) -> str:
-        """Determine if workflow should continue after analysis."""
-        if state.errors:
-            return END
-        return "feedback"
-    
-    def should_continue_after_feedback(state: CVReviewState) -> str:
-        """Determine if workflow should continue after feedback."""
-        if state.errors:
-            return END
-        return "recommend"
-    
-    # Add conditional edges
-    workflow.add_conditional_edges(
-        "extract",
-        should_continue,
-        {
-            "analyze": "analyze",
-            END: END
-        }
-    )
-    
-    workflow.add_conditional_edges(
-        "analyze",
-        should_continue_after_analysis,
-        {
-            "feedback": "feedback",
-            END: END
-        }
-    )
-    
-    workflow.add_conditional_edges(
-        "feedback",
-        should_continue_after_feedback,
-        {
-            "recommend": "recommend",
-            END: END
-        }
-    )
-    
-    return workflow.compile()
-
-
-async def run_cv_review_async(uploaded_file) -> AsyncGenerator[CVReviewState, None]:
-    """Run the CV review workflow asynchronously with real-time status updates."""
-
-    # Create initial state
-    current_state = CVReviewState(
-        processing_status="started"
-    )
-    
-    # Yield initial state
-    yield current_state
-
-    # Process uploaded file
-    file_name, file_content = process_uploaded_file(uploaded_file)
-
-    current_state.file_name = file_name
-    current_state.file_content = file_content
-    current_state.processing_status = "processed_file_complete"
-    yield current_state
-
-    # Initialize workflow
-    workflow = create_cv_review_workflow()
-    
-    try:
-        # Run workflow step by step
-        async for step in workflow.astream(current_state):
-            for node_name, state_data in step.items():
-                for key, value in state_data.items():
-                    setattr(current_state, key, value)
-            yield current_state
-
-                
-    except Exception as e:
-        # Handle workflow errors
-        error_state = CVReviewState(
-            file_name=file_name,
-            file_content=file_content,
-            processing_status="failed",
-            errors=[f"Workflow execution failed: {str(e)}"]
+    def __init__(self, cv_file):
+        """Initialize the workflow with agents."""
+        self.cv_file = cv_file
+        self.state = CVReviewState(
+            processing_status="started"
         )
-        yield error_state
+        self.extraction_agent = ExtractionAgent()
+        self.analysis_agent = AnalysisAgent()
+        self.feedback_agent = FeedbackAgent()
+        self.recommendation_agent = RecommendationAgent()
+        self._workflow = self._create_workflow()
+    
+    def _create_workflow(self) -> StateGraph:
+        """Create the CV review workflow using LangGraph."""
+        
+        # Create workflow
+        workflow = StateGraph(CVReviewState)
+        
+        # Add nodes
+        workflow.add_node("extract", self.extraction_agent.process)
+        workflow.add_node("analyze", self.analysis_agent.process)
+        workflow.add_node("feedback", self.feedback_agent.process)
+        workflow.add_node("recommend", self.recommendation_agent.process)
+        
+        # Set entry point
+        workflow.set_entry_point("extract")
+        
+        # Add conditional edges for error handling
+        def should_continue(state: CVReviewState) -> str:
+            """Determine if workflow should continue or end due to errors."""
+            if state.errors:
+                return END
+            return "analyze"
+        
+        def should_continue_after_analysis(state: CVReviewState) -> str:
+            """Determine if workflow should continue after analysis."""
+            if state.errors:
+                return END
+            return "feedback"
+        
+        def should_continue_after_feedback(state: CVReviewState) -> str:
+            """Determine if workflow should continue after feedback."""
+            if state.errors:
+                return END
+            return "recommend"
+        
+        # Add conditional edges
+        workflow.add_conditional_edges(
+            "extract",
+            should_continue,
+            {
+                "analyze": "analyze",
+                END: END
+            }
+        )
+        
+        workflow.add_conditional_edges(
+            "analyze",
+            should_continue_after_analysis,
+            {
+                "feedback": "feedback",
+                END: END
+            }
+        )
+        
+        workflow.add_conditional_edges(
+            "feedback",
+            should_continue_after_feedback,
+            {
+                "recommend": "recommend",
+                END: END
+            }
+        )
+        
+        return workflow.compile()
+    
+    def _set_state_from_step(self, step: dict) -> None:
+        """Set the state from a step."""
+        for node_name, state_data in step.items():
+            for key, value in state_data.items():
+                setattr(self.state, key, value)
+
+    
+    async def _run_workflow(self) -> AsyncGenerator[CVReviewState, None]:
+        """Run the CV review workflow."""
+        async for step in self.workflow.astream(self.state):
+            self._set_state_from_step(step)
+            yield self.state
+
+    def _process_file(self) -> None:
+        """Process the file."""
+        file_name, file_content = process_uploaded_file(self.cv_file)
+        self.state.file_name = file_name
+        self.state.file_content = file_content
+        self.state.processing_status = "processed_file_complete"
+    
+    async def run_async(self) -> AsyncGenerator[CVReviewState, None]:
+        """Run the CV review workflow asynchronously with real-time status updates."""
+        yield self.state
+
+        self._process_file()
+        yield self.state
+
+        try:
+            async for state in self._run_workflow():
+                yield state
+
+        except Exception as e:
+            error_state = CVReviewState(
+                file_name=file_name,
+                file_content=file_content,
+                processing_status="failed",
+                errors=[f"Workflow execution failed: {str(e)}"]
+            )
+            yield error_state
 
