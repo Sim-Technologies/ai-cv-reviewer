@@ -51,6 +51,22 @@ def render_about_section():
     Supported formats: PDF, DOCX, TXT
     """)
 
+def render_processing_actions():
+    """Render the processing actions."""
+    st.subheader("🚀 Ready to Review")
+    st.write("Your CV has been uploaded successfully. Click the button below to start the AI review process.")
+    
+    if st.button("🚀 Start CV Review", type="primary", use_container_width=True):
+        st.session_state.processing_started = True
+        st.rerun()
+    
+    # Option to upload different file
+    if st.button("📄 Upload Different File", use_container_width=True):
+        # Clear uploaded state
+        st.session_state.file_uploaded = False
+        if 'uploaded_file' in st.session_state:
+            del st.session_state.uploaded_file
+        st.rerun()
 
 def render_file_upload():
     """Render the file upload section."""
@@ -61,8 +77,13 @@ def render_file_upload():
         type=['pdf', 'docx', 'txt'],
         help="Supported formats: PDF, DOCX, TXT (max 10MB)"
     )
+
+    if uploaded_file is not None:
+        # Set uploaded state
+        st.session_state.file_uploaded = True
+        st.session_state.uploaded_file = uploaded_file
+        st.rerun()
     
-    return uploaded_file
 
 
 def render_file_preview(uploaded_file):
@@ -92,42 +113,6 @@ def render_file_preview(uploaded_file):
     else:
         st.info(f"📄 File: {file_name}")
 
-
-def render_processing_sidebar():
-    """Render processing status in sidebar."""
-    st.sidebar.subheader("🔄 Processing Status")
-    
-    # Progress indicator
-    if 'progress' not in st.session_state:
-        st.session_state.progress = 0
-    
-    progress_bar = st.sidebar.progress(st.session_state.progress)
-    
-    # Status text
-    if 'status_text' not in st.session_state:
-        st.session_state.status_text = "Starting..."
-    
-    st.sidebar.text(st.session_state.status_text)
-    
-    # Processing steps
-    steps = [
-        "📖 Extracting data from CV",
-        "🔍 Analyzing CV content", 
-        "💬 Generating feedback",
-        "🎯 Generating recommendations",
-        "✅ CV review completed!"
-    ]
-    
-    current_step = min(st.session_state.progress // 25, len(steps) - 1)
-    
-    st.sidebar.markdown("**Processing Steps:**")
-    for i, step in enumerate(steps):
-        if i <= current_step:
-            st.sidebar.markdown(f"✅ {step}")
-        else:
-            st.sidebar.markdown(f"⏳ {step}")
-    
-    return progress_bar
 
 
 def render_processing_status(status: str):
@@ -373,43 +358,34 @@ def render_download_section(state: CVReviewState):
 
 
 def render_complete_results(state: CVReviewState):
+
+    # Show processing status
+    render_processing_status(state.processing_status)
+    
     """Render complete results section."""
     if state.processing_status == "complete":
-        # Create a container with fixed height and scrolling
-        with st.container():
-            st.markdown("""
-            <style>
-            .results-container {
-                height: 600px;
-                overflow-y: auto;
-                border: 1px solid #ddd;
-                border-radius: 5px;
-                padding: 20px;
-                margin: 10px 0;
-            }
-            </style>
-            """, unsafe_allow_html=True)
-            
-            with st.container():
-                st.markdown('<div class="results-container">', unsafe_allow_html=True)
-                
-                # Render each section
-                if state.extracted_data:
-                    render_extracted_data(state.extracted_data)
-                
-                if state.analysis_results:
-                    render_analysis_results(state.analysis_results)
-                
-                if state.feedback:
-                    render_feedback(state.feedback)
-                
-                if state.recommendations:
-                    render_recommendations(state.recommendations)
-                
-                # Download section
-                render_download_section(state)
-                
-                st.markdown('</div>', unsafe_allow_html=True)
+        # Render each section
+        if state.extracted_data:
+            render_extracted_data(state.extracted_data)
+        
+        if state.analysis_results:
+            render_analysis_results(state.analysis_results)
+        
+        if state.feedback:
+            render_feedback(state.feedback)
+        
+        if state.recommendations:
+            render_recommendations(state.recommendations)
+        
+        # Download section
+        render_download_section(state)
+
+
+        # Add a button to clear results
+        if st.button("🔄 Review Another CV", use_container_width=True):
+            if 'cv_review_result' in st.session_state:
+                del st.session_state.cv_review_result
+            st.rerun()
     
     elif state.errors:
         render_errors(state.errors) 

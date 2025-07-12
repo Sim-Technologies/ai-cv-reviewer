@@ -2,9 +2,11 @@ import streamlit as st
 import time
 import asyncio
 from app.ui.components import (
-    render_file_upload, render_processing_status,
-    render_complete_results, render_about_section,
-    render_file_preview, render_processing_sidebar
+    render_file_upload,
+    render_complete_results, 
+    render_about_section,
+    render_file_preview,
+    render_processing_actions
 )
 from app.utils.llm_config import validate_api_key
 from app.graph.workflow import run_cv_review_async
@@ -64,32 +66,14 @@ def main():
             render_about_section() 
     
     with col2:
+        
         # File upload section - only show if no file uploaded yet
         if not st.session_state.get('file_uploaded', False):
-            uploaded_file = render_file_upload()
+            render_file_upload()
             
-            if uploaded_file is not None:
-                # Set uploaded state
-                st.session_state.file_uploaded = True
-                st.session_state.uploaded_file = uploaded_file
-                st.rerun()
-
         else:
             if not st.session_state.get('processing_started', False):
-                st.subheader("🚀 Ready to Review")
-                st.write("Your CV has been uploaded successfully. Click the button below to start the AI review process.")
-                
-                if st.button("🚀 Start CV Review", type="primary", use_container_width=True):
-                    st.session_state.processing_started = True
-                    st.rerun()
-                
-                # Option to upload different file
-                if st.button("📄 Upload Different File", use_container_width=True):
-                    # Clear uploaded state
-                    st.session_state.file_uploaded = False
-                    if 'uploaded_file' in st.session_state:
-                        del st.session_state.uploaded_file
-                    st.rerun()
+                render_processing_actions()
 
             else:
                 try:
@@ -176,21 +160,10 @@ def main():
                     st.session_state.processing_started = False
                     st.stop()
 
-        # Display results if available
         if hasattr(st.session_state, 'cv_review_result'):
-            result = st.session_state.cv_review_result
-            
-            # Show processing status
-            render_processing_status(result.processing_status)
-            
-            # Show results
-            render_complete_results(result)
-            
-            # Add a button to clear results
-            if st.button("🔄 Review Another CV", use_container_width=True):
-                if 'cv_review_result' in st.session_state:
-                    del st.session_state.cv_review_result
-                st.rerun()
+            with st.container(height=600):
+                result = st.session_state.cv_review_result
+                render_complete_results(result)
 
 
 if __name__ == "__main__":
