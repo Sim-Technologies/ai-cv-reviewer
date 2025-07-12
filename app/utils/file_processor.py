@@ -60,12 +60,3 @@ def process_uploaded_file(uploaded_file) -> Tuple[str, str]:
         raise ValueError("No text content found in the uploaded file.")
     
     return file_name, text_content
-
-
-def validate_file_size(uploaded_file) -> bool:
-    """Validate file size."""
-    if uploaded_file is None:
-        return False
-    
-    file_size_mb = uploaded_file.size / (1024 * 1024)
-    return file_size_mb <= MAX_FILE_SIZE_MB 

@@ -343,8 +343,7 @@ def render_download_section(state: CVReviewState):
 def render_complete_results(state: CVReviewState):
     """Render complete results section."""
     if state.processing_status == "complete":
-        st.success("🎉 CV Review Completed Successfully!")
-        
+
         # Render each section
         if state.extracted_data:
             render_extracted_data(state.extracted_data)

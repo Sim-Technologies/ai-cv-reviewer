@@ -1,10 +1,12 @@
-from typing import Dict, Any
+from typing import Dict, Any, AsyncGenerator
+import asyncio
 from langgraph.graph import StateGraph, END
 from app.models import CVReviewState
 from app.agents.extraction_agent import ExtractionAgent
 from app.agents.analysis_agent import AnalysisAgent
 from app.agents.feedback_agent import FeedbackAgent
 from app.agents.recommendation_agent import RecommendationAgent
+from app.utils.file_processor import process_uploaded_file
 
 
 def create_cv_review_workflow():
@@ -84,23 +86,37 @@ def create_cv_review_workflow():
     return workflow.compile()
 
 
-def run_cv_review(file_name: str, file_content: str) -> CVReviewState:
-    """Run the complete CV review workflow."""
-    
-    # Initialize workflow
-    workflow = create_cv_review_workflow()
-    
+async def run_cv_review_async(uploaded_file) -> AsyncGenerator[CVReviewState, None]:
+    """Run the CV review workflow asynchronously with real-time status updates."""
+
     # Create initial state
-    initial_state = CVReviewState(
-        file_name=file_name,
-        file_content=file_content,
+    current_state = CVReviewState(
         processing_status="started"
     )
     
-    # Run workflow
+    # Yield initial state
+    yield current_state
+
+    # Process uploaded file
+    file_name, file_content = process_uploaded_file(uploaded_file)
+
+    current_state.file_name = file_name
+    current_state.file_content = file_content
+    current_state.processing_status = "processed_file_complete"
+    yield current_state
+
+    # Initialize workflow
+    workflow = create_cv_review_workflow()
+    
     try:
-        result_dict = workflow.invoke(initial_state)
-        return CVReviewState(**result_dict)
+        # Run workflow step by step
+        async for step in workflow.astream(current_state):
+            for node_name, state_data in step.items():
+                for key, value in state_data.items():
+                    setattr(current_state, key, value)
+            yield current_state
+
+                
     except Exception as e:
         # Handle workflow errors
         error_state = CVReviewState(
@@ -109,4 +125,5 @@ def run_cv_review(file_name: str, file_content: str) -> CVReviewState:
             processing_status="failed",
             errors=[f"Workflow execution failed: {str(e)}"]
         )
-        return error_state 
+        yield error_state
+

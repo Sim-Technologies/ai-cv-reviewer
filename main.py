@@ -1,13 +1,13 @@
 import streamlit as st
 import time
+import asyncio
 from app.ui.components import (
     render_file_upload, render_processing_status,
     render_complete_results, render_about_section,
     render_file_preview, render_processing_sidebar
 )
-from app.utils.file_processor import process_uploaded_file, validate_file_size
 from app.utils.llm_config import validate_api_key
-from app.graph.workflow import run_cv_review
+from app.graph.workflow import run_cv_review_async
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -47,8 +47,6 @@ def main():
     }
     </style>
     """, unsafe_allow_html=True)
-    
-    
 
     # API key validation
     if not validate_api_key():
@@ -71,60 +69,86 @@ def main():
             uploaded_file = render_file_upload()
             
             if uploaded_file is not None:
-                # Validate file size
-                if not validate_file_size(uploaded_file):
-                    st.error(f"❌ File size exceeds 20MB limit")
-                    st.stop()
-                
                 # Set uploaded state
                 st.session_state.file_uploaded = True
                 st.session_state.uploaded_file = uploaded_file
                 st.rerun()
 
         else:
-            if st.session_state.get('processing_started', False):
+            if not st.session_state.get('processing_started', False):
+                st.subheader("🚀 Ready to Review")
+                st.write("Your CV has been uploaded successfully. Click the button below to start the AI review process.")
+                
+                if st.button("🚀 Start CV Review", type="primary", use_container_width=True):
+                    st.session_state.processing_started = True
+                    st.rerun()
+                
+                # Option to upload different file
+                if st.button("📄 Upload Different File", use_container_width=True):
+                    # Clear uploaded state
+                    st.session_state.file_uploaded = False
+                    if 'uploaded_file' in st.session_state:
+                        del st.session_state.uploaded_file
+                    st.rerun()
+
+            else:
                 try:
-                    # Process uploaded file
-                    file_name, file_content = process_uploaded_file(uploaded_file)
-                    
                     # Create progress container
                     progress_container = st.container()
                     
                     with progress_container:
-                        st.info("🔄 Processing your CV... This may take a few minutes.")
+                        if st.session_state.get('progress', 0) < 100:
+                            st.info("🔄 Processing your CV... This may take a few minutes.")
                         
                         # Initialize progress
                         if 'progress' not in st.session_state:
-                            st.session_state.progress = 10
-                            st.session_state.status_text = "📖 Extracting data from CV..."
+                            st.session_state.progress = 5
+                            st.session_state.status_text = "📄 Processing uploaded file..."
                         
                         # Create a progress bar
                         progress_bar = st.progress(st.session_state.progress / 100)
                         status_text = st.empty()
                         status_text.text(st.session_state.status_text)
                         
-                        # Run CV review workflow
-                        result = run_cv_review(file_name, file_content)
+                        # Run CV review workflow asynchronously
+                        async def process_cv():
+                            final_result = None
+                            async for state in run_cv_review_async(uploaded_file):
+                                final_result = state
+                                
+                                # Update progress based on status
+                                if state.processing_status == "processed_file_complete":
+                                    st.session_state.progress = 15
+                                    st.session_state.status_text = "📖 Extracting data from CV..."
+                                elif state.processing_status == "extraction_complete":
+                                    st.session_state.progress = 30
+                                    st.session_state.status_text = "🔍 Analyzing CV content..."
+                                elif state.processing_status == "analysis_complete":
+                                    st.session_state.progress = 50
+                                    st.session_state.status_text = "💬 Generating feedback..."
+                                elif state.processing_status == "feedback_complete":
+                                    st.session_state.progress = 75
+                                    st.session_state.status_text = "🎯 Generating recommendations..."
+                                elif state.processing_status == "complete":
+                                    st.session_state.progress = 100
+                                    st.session_state.status_text = "✅ CV review completed!"
+                                elif state.processing_status == "failed":
+                                    st.session_state.progress = 0
+                                    st.session_state.status_text = "❌ Processing failed"
+                                
+                                # Update UI
+                                progress_bar.progress(st.session_state.progress / 100)
+                                status_text.text(st.session_state.status_text)
+                                
+                                # Small delay to show progress
+                                await asyncio.sleep(0.5)
+                            
+                            return final_result
                         
-                        # Update progress based on status
-                        if result.processing_status == "extraction_complete":
-                            st.session_state.progress = 25
-                            st.session_state.status_text = "🔍 Analyzing CV content..."
-                        elif result.processing_status == "analysis_complete":
-                            st.session_state.progress = 50
-                            st.session_state.status_text = "💬 Generating feedback..."
-                        elif result.processing_status == "feedback_complete":
-                            st.session_state.progress = 75
-                            st.session_state.status_text = "🎯 Generating recommendations..."
-                        elif result.processing_status == "complete":
-                            st.session_state.progress = 100
-                            st.session_state.status_text = "✅ CV review completed!"
+                        # Run the async function
+                        result = asyncio.run(process_cv())
                         
-                        # Update UI
-                        progress_bar.progress(st.session_state.progress / 100)
-                        status_text.text(st.session_state.status_text)
-                        
-                        # Small delay to show progress
+                        # Small delay to show completion
                         time.sleep(0.5)
                         
                         # Clear progress indicators
@@ -151,22 +175,6 @@ def main():
                     # Clear processing flag on error
                     st.session_state.processing_started = False
                     st.stop()
-            else:
-                st.subheader("🚀 Ready to Review")
-                st.write("Your CV has been uploaded successfully. Click the button below to start the AI review process.")
-                
-                if st.button("🚀 Start CV Review", type="primary", use_container_width=True):
-                    # Set processing flag
-                    st.session_state.processing_started = True
-                    st.rerun()
-                
-                # Option to upload different file
-                if st.button("📄 Upload Different File", use_container_width=True):
-                    # Clear uploaded state
-                    st.session_state.file_uploaded = False
-                    if 'uploaded_file' in st.session_state:
-                        del st.session_state.uploaded_file
-                    st.rerun()
 
         # Display results if available
         if hasattr(st.session_state, 'cv_review_result'):
