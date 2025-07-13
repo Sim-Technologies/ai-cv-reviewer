@@ -80,6 +80,26 @@ class Recommendation(BaseModel):
     industry_trends: List[str] = Field(default_factory=list)
 
 
+class ProcessingStatus(str, Enum):
+    PENDING = "pending"
+    STARTED = "started"
+    PROCESSED_FILE_COMPLETE = "processed_file_complete"
+
+    EXTRACTING = "extracting"
+    EXTRACTION_COMPLETE = "extraction_complete"
+    
+    ANALYZING = "analyzing"
+    ANALYSIS_COMPLETE = "analysis_complete"
+    
+    GENERATING_FEEDBACK = "generating_feedback"
+    FEEDBACK_COMPLETE = "feedback_complete"
+    
+    GENERATING_RECOMMENDATIONS = "generating_recommendations"
+    RECOMMEND_COMPLETE = "recommend_complete"
+    
+    COMPLETED = "completed"
+    FAILED = "failed"
+
 class CVReviewState(BaseModel):
     file_name: Optional[str] = None
     file_content: Optional[str] = None
@@ -88,4 +108,4 @@ class CVReviewState(BaseModel):
     feedback: Optional[Feedback] = None
     recommendations: Optional[Recommendation] = None
     errors: List[str] = Field(default_factory=list)
-    processing_status: str = "pending" 
+    processing_status: ProcessingStatus = ProcessingStatus.PENDING

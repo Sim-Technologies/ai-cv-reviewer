@@ -1,6 +1,6 @@
 from langchain_core.output_parsers import JsonOutputParser
 from langchain.prompts import PromptTemplate
-from app.models import ExtractedCVData, AnalysisResult, Feedback, CVReviewState
+from app.models import ExtractedCVData, AnalysisResult, Feedback, CVReviewState, ProcessingStatus
 from app.utils.llm_config import get_chat_model
 
 
@@ -73,10 +73,10 @@ class FeedbackAgent:
                 state.errors.append("Missing extracted data or analysis results for feedback")
                 return state
             
-            state.processing_status = "generating_feedback"
+            state.processing_status = ProcessingStatus.GENERATING_FEEDBACK
             feedback = self.generate_feedback(state.extracted_data, state.analysis_results)
             state.feedback = feedback
-            state.processing_status = "feedback_complete"
+            state.processing_status = ProcessingStatus.FEEDBACK_COMPLETE
             return state
             
         except Exception as e:

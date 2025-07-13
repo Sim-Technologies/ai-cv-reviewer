@@ -2,7 +2,6 @@ import streamlit as st
 from app.ui.sections import render_left_section, render_right_section
 from app.utils.llm_config import validate_api_key
 from dotenv import load_dotenv
-from app.ui.session_state import initialize_session_state
 
 load_dotenv()
 
@@ -49,8 +48,6 @@ def main():
         st.error("❌ Anthropic API key not configured or invalid")
         st.info("Please set your ANTHROPIC_API_KEY in the .env file")
         st.stop()
-
-    initialize_session_state()
 
     # Main content area
     left_col, right_col = st.columns([1, 1])

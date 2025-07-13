@@ -1,6 +1,6 @@
 from langchain_core.output_parsers import JsonOutputParser
 from langchain.prompts import PromptTemplate
-from app.models import ExtractedCVData, AnalysisResult, CVReviewState
+from app.models import ExtractedCVData, AnalysisResult, CVReviewState, ProcessingStatus
 from app.utils.llm_config import get_chat_model
 
 ANALYSIS_PROMPT = PromptTemplate(
@@ -69,10 +69,10 @@ class AnalysisAgent:
                 state.errors.append("No extracted data to analyze")
                 return state
             
-            state.processing_status = "analyzing"
+            state.processing_status = ProcessingStatus.ANALYZING
             analysis_results = self.analyze_data(state.extracted_data)
             state.analysis_results = analysis_results
-            state.processing_status = "analysis_complete"
+            state.processing_status = ProcessingStatus.ANALYSIS_COMPLETE
             return state
             
         except Exception as e:

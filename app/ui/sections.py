@@ -21,7 +21,8 @@ from .session_state import (
     reset_session_state,
     set_progress,
     get_current_progress,
-    set_cv_review_result
+    set_cv_review_result,
+    get_processing_status
 )
 
 def render_about_section():
@@ -41,14 +42,19 @@ def render_about_section():
 
 def render_processing_actions_section():
     """Render the processing actions."""
-    st.subheader("🚀 Ready to Review")
-    st.write("Your CV has been uploaded successfully. Click the button below to start the AI review process.")
-    
-    if st.button("🚀 Start CV Review", type="primary", use_container_width=True):
-        set_processing_status('processing')
-    
-    if st.button("📄 Upload Different File", use_container_width=True):
-        clear_uploaded_file()
+    section = st.empty()
+    with section.container(height=600):
+        st.subheader("🚀 Ready to Review")
+        st.write("Your CV has been uploaded successfully. Click the button below to start the AI review process.")
+        start_button = st.button("🚀 Start CV Review", type="primary", use_container_width=True)
+        reset_button = st.button("📄 Upload Different File", use_container_width=True)
+        
+        if start_button:
+            section.empty()
+            set_processing_status('processing')
+        
+        if reset_button:
+            clear_uploaded_file()
 
 def render_file_upload_section():
     """Render the file upload section."""
@@ -56,8 +62,7 @@ def render_file_upload_section():
     
     uploaded_file = st.file_uploader(
         "Choose a CV file",
-        type=['pdf', 'docx', 'txt'],
-        help="Supported formats: PDF, DOCX, TXT (max 10MB)"
+        type=['pdf', 'docx', 'txt']
     )
 
     if uploaded_file is not None:
@@ -124,6 +129,56 @@ def render_complete_results_section(state: CVReviewState):
         elif state.errors:
             render_errors(state.errors) 
 
+from app.models import ProcessingStatus
+
+PROGRESS = [
+    ProcessingStatus.STARTED,
+    ProcessingStatus.PROCESSED_FILE_COMPLETE,
+    ProcessingStatus.EXTRACTION_COMPLETE,
+    ProcessingStatus.ANALYSIS_COMPLETE,
+    ProcessingStatus.FEEDBACK_COMPLETE,
+    ProcessingStatus.RECOMMEND_COMPLETE,
+]
+
+PROGRESSING_TEXT_MAP = [
+    "📄 Processing uploaded file...",
+    "📖 Extracting data from CV...",
+    "🔍 Analyzing CV content...",
+    "💬 Generating feedback...",
+    "🎯 Generating recommendations...",
+    "✅ CV review completed!",
+]
+
+COMPLETED_TEXT_MAP = [
+    "Processed uploaded file...",
+    "Extracted data from CV...",
+    "Analyzed CV content...",
+    "Generated feedback...",
+    "Generated recommendations...",
+    "CV review completed!",
+]
+
+
+
+def get_completed_text(status: ProcessingStatus):
+    return "✅ " + COMPLETED_TEXT_MAP[PROGRESS.index(status)]
+
+def get_progressing_text(status: ProcessingStatus):
+    return PROGRESSING_TEXT_MAP[PROGRESS.index(status)]
+
+def calculate_progress(status: ProcessingStatus):
+    return PROGRESS.index(status) / len(PROGRESS) * 100
+
+def build_progress_text(status: ProcessingStatus):
+    progressing_step = status
+    completed_steps = PROGRESS[:PROGRESS.index(status)]
+
+    progressing_text = get_progressing_text(progressing_step)
+    completed_text = [get_completed_text(step) for step in completed_steps]
+
+    return  completed_text + [progressing_text]
+
+
 def render_processing_progress_section():
     """Render processing progress."""
     try:
@@ -131,54 +186,40 @@ def render_processing_progress_section():
         progress_container = st.container()
         
         with progress_container:
-            set_progress(5, "📄 Processing uploaded file...")
             progress_bar = st.progress(0)
             status_text = st.empty()
 
-            def refresh_progress():
-                progress, text = get_current_progress()
+            def refresh_progress(progress: int, texts: list[str]):
                 progress_bar.progress(progress / 100)
-                status_text.text(text)
-                
-            refresh_progress()
-            
+                with status_text.container():
+                    for text in texts:
+                        st.text(text)
+
             async def process_cv():
                 workflow = CVReviewWorkflow(st.session_state.uploaded_file)
-
                 async for state in workflow.run_async():
-                    # Update progress based on status
-                    if state.processing_status == "processed_file_complete":
-                        set_progress(15, "📖 Extracting data from CV...")
-                    elif state.processing_status == "extraction_complete":
-                        set_progress(30, "🔍 Analyzing CV content...")
-                    elif state.processing_status == "analysis_complete":
-                        set_progress(50, "💬 Generating feedback...")
-                    elif state.processing_status == "feedback_complete":
-                        set_progress(75, "🎯 Generating recommendations...")
-                    elif state.processing_status == "complete":
-                        set_progress(100, "✅ CV review completed!")
-                    elif state.processing_status == "failed":
-                        set_progress(0, "❌ Processing failed")
 
-                    
-                    refresh_progress()
+                    if state.processing_status == ProcessingStatus.FAILED:
+                        refresh_progress(0, ["❌ Processing failed"])
+                        st.stop()
+
+                    refresh_progress(calculate_progress(state.processing_status), build_progress_text(state.processing_status))
+
+                    if state.processing_status == ProcessingStatus.COMPLETED:
+                        set_processing_status('completed')
 
                     # Small delay to show progress
                     await asyncio.sleep(0.5)
                 
                 return workflow.state
-            
-            # Run the async function
+
             result = asyncio.run(process_cv())
+            set_cv_review_result(result)
             
-            # Small delay to show completion
             time.sleep(0.5)
-            
-            # Clear progress indicators
+
             progress_bar.empty()
             status_text.empty()
-        
-        set_cv_review_result(result)
         
     except Exception as e:
         st.error(f"❌ Error processing file: {str(e)}")
@@ -192,7 +233,7 @@ def render_left_section():
         render_about_section() 
 
 def render_right_section():
-    processing_status = st.session_state.processing_status
+    processing_status = get_processing_status()
 
     if has_file_uploaded():
         if processing_status == 'pending':
@@ -203,5 +244,6 @@ def render_right_section():
 
         if processing_status == 'completed':
             render_complete_results_section(st.session_state.cv_review_result)
+
     else:
         render_file_upload_section()

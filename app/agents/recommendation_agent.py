@@ -1,6 +1,6 @@
 from langchain_core.output_parsers import JsonOutputParser
 from langchain.prompts import PromptTemplate
-from app.models import ExtractedCVData, AnalysisResult, Feedback, Recommendation, CVReviewState
+from app.models import ExtractedCVData, AnalysisResult, Feedback, Recommendation, CVReviewState, ProcessingStatus
 from app.utils.llm_config import get_chat_model
 
 
@@ -78,7 +78,7 @@ class RecommendationAgent:
                 state.errors.append("Missing required data for recommendations")
                 return state
             
-            state.processing_status = "generating_recommendations"
+            state.processing_status = ProcessingStatus.GENERATING_RECOMMENDATIONS
             recommendations = self.generate_recommendations(
                 state.extracted_data, 
                 state.analysis_results, 
@@ -86,7 +86,7 @@ class RecommendationAgent:
             )
             state.recommendations = recommendations
             
-            state.processing_status = "complete"
+            state.processing_status = ProcessingStatus.RECOMMEND_COMPLETE
             return state
             
         except Exception as e:

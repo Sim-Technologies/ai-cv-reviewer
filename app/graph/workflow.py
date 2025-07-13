@@ -1,13 +1,12 @@
 from typing import Dict, Any, AsyncGenerator
 
 from langgraph.graph import StateGraph, END
-from app.models import CVReviewState
+from app.models import CVReviewState, ProcessingStatus
 from app.agents.extraction_agent import ExtractionAgent
 from app.agents.analysis_agent import AnalysisAgent
 from app.agents.feedback_agent import FeedbackAgent
 from app.agents.recommendation_agent import RecommendationAgent
 from app.utils.file_processor import process_uploaded_file
-
 
 class CVReviewWorkflow:
     """CV Review workflow using LangGraph for orchestration."""
@@ -16,7 +15,7 @@ class CVReviewWorkflow:
         """Initialize the workflow with agents."""
         self.cv_file = cv_file
         self.state = CVReviewState(
-            processing_status="started"
+            processing_status=ProcessingStatus.STARTED
         )
         self.extraction_agent = ExtractionAgent()
         self.analysis_agent = AnalysisAgent()
@@ -97,16 +96,27 @@ class CVReviewWorkflow:
     
     async def _run_workflow(self) -> AsyncGenerator[CVReviewState, None]:
         """Run the CV review workflow."""
-        async for step in self._workflow.astream(self.state):
-            self._set_state_from_step(step)
-            yield self.state
+        try:
+            async for step in self._workflow.astream(self.state):
+                self._set_state_from_step(step)
+                yield self.state
+        except Exception as e:
+            print("Error", e)
+            error_state = CVReviewState(
+                file_name=self.state.file_name,
+                file_content=self.state.file_content,
+                processing_status=ProcessingStatus.FAILED,
+                errors=[f"Workflow execution failed: {str(e)}"]
+            )
+            yield error_state
+
 
     def _process_file(self) -> None:
         """Process the file."""
         file_name, file_content = process_uploaded_file(self.cv_file)
         self.state.file_name = file_name
         self.state.file_content = file_content
-        self.state.processing_status = "processed_file_complete"
+        self.state.processing_status = ProcessingStatus.PROCESSED_FILE_COMPLETE
     
     async def run_async(self) -> AsyncGenerator[CVReviewState, None]:
         """Run the CV review workflow asynchronously with real-time status updates."""
@@ -114,17 +124,11 @@ class CVReviewWorkflow:
 
         self._process_file()
         yield self.state
+       
+        async for state in self._run_workflow():
+            yield state
 
-        try:
-            async for state in self._run_workflow():
-                yield state
+        self.state.processing_status = ProcessingStatus.COMPLETED
+        yield self.state
 
-        except Exception as e:
-            error_state = CVReviewState(
-                file_name=self.state.file_name,
-                file_content=self.state.file_content,
-                processing_status="failed",
-                errors=[f"Workflow execution failed: {str(e)}"]
-            )
-            yield error_state
 

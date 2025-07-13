@@ -1,6 +1,6 @@
 from langchain_core.output_parsers import JsonOutputParser
 from langchain.prompts import PromptTemplate
-from app.models import ExtractedCVData, CVReviewState
+from app.models import ExtractedCVData, CVReviewState, ProcessingStatus
 from app.utils.llm_config import get_chat_model
 
 
@@ -63,13 +63,13 @@ class ExtractionAgent:
                 state.errors.append("No file content to extract")
                 return state
             
-            state.processing_status = "extracting"
+            state.processing_status = ProcessingStatus.EXTRACTING
             
             # Extract structured data
             extracted_data = self.extract_data(state.file_content)
             state.extracted_data = extracted_data
             
-            state.processing_status = "extraction_complete"
+            state.processing_status = ProcessingStatus.EXTRACTION_COMPLETE
             return state
             
         except Exception as e:
