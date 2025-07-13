@@ -1,9 +1,9 @@
 import os
-from typing import Optional
-from anthropic import Anthropic
 from langchain_anthropic import ChatAnthropic
 
-def get_chat_model(model: str = "claude-sonnet-4-20250514") -> ChatAnthropic:
+DEFAULT_MODEL = "claude-sonnet-4-20250514"
+
+def get_chat_model(model: str = DEFAULT_MODEL) -> ChatAnthropic:
     """Get LangChain ChatAnthropic model instance."""
     api_key = os.getenv("ANTHROPIC_API_KEY")
     if not api_key:

@@ -100,11 +100,9 @@ def render_file_preview_section(uploaded_file):
 
 def render_complete_results_section(state: CVReviewState):
     with st.container(height=600):
-        # Show processing status
-        render_processing_status(state.processing_status)
-        
         """Render complete results section."""
-        if state.processing_status == "complete":
+        if state.processing_status == ProcessingStatus.COMPLETED:
+            st.success("🎉 CV review completed!")
             # Render each section
             if state.extracted_data:
                 render_extracted_data(state.extracted_data)
@@ -203,23 +201,22 @@ def render_processing_progress_section():
                         refresh_progress(0, ["❌ Processing failed"])
                         st.stop()
 
-                    refresh_progress(calculate_progress(state.processing_status), build_progress_text(state.processing_status))
-
-                    if state.processing_status == ProcessingStatus.COMPLETED:
-                        set_processing_status('completed')
-
-                    # Small delay to show progress
-                    await asyncio.sleep(0.5)
+                    if state.processing_status in PROGRESS:
+                        refresh_progress(calculate_progress(state.processing_status), build_progress_text(state.processing_status))
+                        # Small delay to show progress
+                        await asyncio.sleep(0.5)
                 
                 return workflow.state
 
             result = asyncio.run(process_cv())
-            set_cv_review_result(result)
             
             time.sleep(0.5)
 
             progress_bar.empty()
             status_text.empty()
+
+        set_cv_review_result(result)
+        set_processing_status('completed')
         
     except Exception as e:
         st.error(f"❌ Error processing file: {str(e)}")

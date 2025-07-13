@@ -12,7 +12,6 @@ def reset_session_state():
 
 def set_cv_review_result(cv_review_result: CVReviewState):
     st.session_state.cv_review_result = cv_review_result
-    st.rerun()
 
 def set_progress(progress: int, status_text: str):
     st.session_state.progress = progress
