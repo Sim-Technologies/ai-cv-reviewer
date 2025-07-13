@@ -1,12 +1,8 @@
-import json
-from typing import Dict, Any
-from langchain.output_parsers import JsonOutputParser
+from langchain_core.output_parsers import JsonOutputParser
 from langchain.prompts import PromptTemplate
 from app.models import ExtractedCVData, AnalysisResult, CVReviewState
 from app.utils.llm_config import get_chat_model
 
-
-# Define the analysis prompt template
 ANALYSIS_PROMPT = PromptTemplate(
     template="""You are an expert CV analyst and career consultant. Analyze the CV data and provide comprehensive insights.
 
@@ -42,21 +38,14 @@ class AnalysisAgent:
     def __init__(self):
         self.llm = get_chat_model()
         self.parser = JsonOutputParser(pydantic_object=AnalysisResult)
-        
-        # Create prompt with format instructions
         self.prompt = ANALYSIS_PROMPT.partial(format_instructions=self.parser.get_format_instructions())
-        
-        # Create the chain
         self.chain = self.prompt | self.llm | self.parser
     
     def analyze_data(self, extracted_data: ExtractedCVData) -> AnalysisResult:
         """Analyze extracted CV data and provide insights using JsonOutputParser."""
         
         try:
-            # Convert extracted data to JSON for analysis
             data_json = extracted_data.model_dump_json()
-            
-            # Run the chain
             result = self.chain.invoke({"cv_data": data_json})
             
             return result
@@ -81,11 +70,8 @@ class AnalysisAgent:
                 return state
             
             state.processing_status = "analyzing"
-            
-            # Analyze extracted data
             analysis_results = self.analyze_data(state.extracted_data)
             state.analysis_results = analysis_results
-            
             state.processing_status = "analysis_complete"
             return state
             

@@ -2,10 +2,7 @@ import streamlit as st
 import json
 from typing import Optional
 from app.models import CVReviewState, ExtractedCVData, AnalysisResult, Feedback, Recommendation
-from streamlit_pdf_viewer import pdf_viewer
-from app.graph.workflow import CVReviewWorkflow
-import asyncio
-import time
+
 
 
 def dict_to_markdown(data: dict, indent: int = 0) -> str:
@@ -37,84 +34,6 @@ def dict_to_markdown(data: dict, indent: int = 0) -> str:
             markdown_lines.append(f"{indent_str}**{formatted_key}:** {value}")
     
     return "\n".join(markdown_lines)
-
-
-def render_about_section():
-    """Render the about section."""
-    # About section
-    st.header("🤖 AI CV Reviewer")
-    st.markdown("""
-    This AI CV Reviewer uses advanced language models to:
-
-    - **Extract** structured data from your CV
-    - **Analyze** your experiences, skills and education
-    - **Provide** constructive feedback
-    - **Suggest** improvements and career guidance
-    
-    Supported formats: PDF, DOCX, TXT
-    """)
-
-def render_processing_actions():
-    """Render the processing actions."""
-    st.subheader("🚀 Ready to Review")
-    st.write("Your CV has been uploaded successfully. Click the button below to start the AI review process.")
-    
-    if st.button("🚀 Start CV Review", type="primary", use_container_width=True):
-        st.session_state.processing_status = 'processing'
-        st.rerun()
-    
-    # Option to upload different file
-    if st.button("📄 Upload Different File", use_container_width=True):
-        # Clear uploaded state
-        st.session_state.file_uploaded = False
-        if 'uploaded_file' in st.session_state:
-            del st.session_state.uploaded_file
-        st.rerun()
-
-def render_file_upload():
-    """Render the file upload section."""
-    st.subheader("📄 Upload Your CV")
-    
-    uploaded_file = st.file_uploader(
-        "Choose a CV file",
-        type=['pdf', 'docx', 'txt'],
-        help="Supported formats: PDF, DOCX, TXT (max 10MB)"
-    )
-
-    if uploaded_file is not None:
-        # Set uploaded state
-        st.session_state.file_uploaded = True
-        st.session_state.uploaded_file = uploaded_file
-        st.rerun()
-    
-
-
-def render_file_preview(uploaded_file):
-    """Render file preview based on file type."""
-    if uploaded_file is None:
-        return
-    
-    file_name = uploaded_file.name
-    file_extension = file_name.lower().split('.')[-1]
-    
-    st.subheader("📄 File Preview")
-    
-    if file_extension == 'pdf':
-      uploaded_file.seek(0)
-      pdf_bytes = uploaded_file.read()
-      pdf_viewer(pdf_bytes, height=600)
-    elif file_extension == 'docx':
-        st.info("📄 DOCX files cannot be previewed directly")
-        st.write("**File:** " + file_name)
-        st.write("**Size:** " + f"{uploaded_file.size / 1024:.1f} KB")
-    elif file_extension == 'txt':
-        st.info("📄 Text file content:")
-        # Reset file pointer to beginning
-        uploaded_file.seek(0)
-        text_content = uploaded_file.read().decode('utf-8')
-        st.text_area("Content", text_content, height=400, disabled=True)
-    else:
-        st.info(f"📄 File: {file_name}")
 
 
 
@@ -335,7 +254,7 @@ def render_errors(errors: list):
             st.write(f"• {error}")
 
 
-def render_download_section(state: CVReviewState):
+def render_download_button(state: CVReviewState):
     """Render download section for results."""
     if state.processing_status == "complete":
         st.subheader("💾 Download Results")
@@ -359,128 +278,3 @@ def render_download_section(state: CVReviewState):
             mime="application/json"
         )
 
-
-def render_complete_results(state: CVReviewState):
-    with st.container(height=600):
-        # Show processing status
-        render_processing_status(state.processing_status)
-        
-        """Render complete results section."""
-        if state.processing_status == "complete":
-            # Render each section
-            if state.extracted_data:
-                render_extracted_data(state.extracted_data)
-            
-            if state.analysis_results:
-                render_analysis_results(state.analysis_results)
-            
-            if state.feedback:
-                render_feedback(state.feedback)
-            
-            if state.recommendations:
-                render_recommendations(state.recommendations)
-            
-            # Download section
-            render_download_section(state)
-
-
-            # Add a button to clear results
-            if st.button("🔄 Review Another CV", use_container_width=True):
-                if 'cv_review_result' in st.session_state:
-                    del st.session_state.cv_review_result
-                st.rerun()
-        
-        elif state.errors:
-            render_errors(state.errors) 
-
-def render_processing_progress():
-    """Render processing progress."""
-    try:
-        # Create progress container
-        progress_container = st.container()
-        
-        with progress_container:
-            # Initialize progress
-            if 'progress' not in st.session_state:
-                st.session_state.progress = 5
-                st.session_state.status_text = "📄 Processing uploaded file..."
-            
-            # Create a progress bar
-            progress_bar = st.progress(st.session_state.progress / 100)
-            status_text = st.empty()
-            status_text.text(st.session_state.status_text)
-            
-            # Run CV review workflow asynchronously
-            async def process_cv():
-                workflow = CVReviewWorkflow(st.session_state.uploaded_file)
-
-                async for state in workflow.run_async():
-                    # Update progress based on status
-                    if state.processing_status == "processed_file_complete":
-                        st.session_state.progress = 15
-                        st.session_state.status_text = "📖 Extracting data from CV..."
-                    elif state.processing_status == "extraction_complete":
-                        st.session_state.progress = 30
-                        st.session_state.status_text = "🔍 Analyzing CV content..."
-                    elif state.processing_status == "analysis_complete":
-                        st.session_state.progress = 50
-                        st.session_state.status_text = "💬 Generating feedback..."
-                    elif state.processing_status == "feedback_complete":
-                        st.session_state.progress = 75
-                        st.session_state.status_text = "🎯 Generating recommendations..."
-                    elif state.processing_status == "complete":
-                        st.session_state.progress = 100
-                        st.session_state.status_text = "✅ CV review completed!"
-                    elif state.processing_status == "failed":
-                        st.session_state.progress = 0
-                        st.session_state.status_text = "❌ Processing failed"
-                    
-                    # Update UI
-                    progress_bar.progress(st.session_state.progress / 100)
-                    status_text.text(st.session_state.status_text)
-                    
-                    # Small delay to show progress
-                    await asyncio.sleep(0.5)
-                
-                return workflow.state
-            
-            # Run the async function
-            result = asyncio.run(process_cv())
-            
-            # Small delay to show completion
-            time.sleep(0.5)
-            
-            # Clear progress indicators
-            progress_bar.empty()
-            status_text.empty()
-        
-        # Store result in session state
-        st.session_state.cv_review_result = result
-        
-    except Exception as e:
-        st.error(f"❌ Error processing file: {str(e)}")
-        # Clear processing flag on error
-        st.session_state.processing_status = 'failed'
-        st.stop()
-
-def render_left_section():
-    if st.session_state.file_uploaded:
-        render_file_preview(st.session_state.uploaded_file)
-    else:
-        render_about_section() 
-
-def render_right_section():
-    processing_status = st.session_state.processing_status
-
-    # File upload section - only show if no file uploaded yet
-    if not st.session_state.file_uploaded:
-        render_file_upload()
-    else:
-        if processing_status == 'pending':
-            render_processing_actions()
-
-        if processing_status == 'processing':
-            render_processing_progress()
-
-        if processing_status == 'completed':
-            render_complete_results(st.session_state.cv_review_result)

@@ -1,12 +1,9 @@
-import json
-from typing import Dict, Any
-from langchain.output_parsers import JsonOutputParser
+from langchain_core.output_parsers import JsonOutputParser
 from langchain.prompts import PromptTemplate
 from app.models import ExtractedCVData, AnalysisResult, Feedback, CVReviewState
 from app.utils.llm_config import get_chat_model
 
 
-# Define the feedback prompt template
 FEEDBACK_PROMPT = PromptTemplate(
     template="""You are an expert career coach and CV reviewer. Generate constructive, actionable feedback based on the CV data and analysis.
 
@@ -42,22 +39,15 @@ class FeedbackAgent:
     def __init__(self):
         self.llm = get_chat_model()
         self.parser = JsonOutputParser(pydantic_object=Feedback)
-        
-        # Create prompt with format instructions
         self.prompt = FEEDBACK_PROMPT.partial(format_instructions=self.parser.get_format_instructions())
-        
-        # Create the chain
         self.chain = self.prompt | self.llm | self.parser
     
     def generate_feedback(self, extracted_data: ExtractedCVData, analysis_results: AnalysisResult) -> Feedback:
         """Generate constructive feedback based on CV data and analysis using JsonOutputParser."""
         
         try:
-            # Prepare data for feedback generation
             data_json = extracted_data.model_dump_json()
             analysis_json = analysis_results.model_dump_json()
-            
-            # Run the chain
             result = self.chain.invoke({
                 "cv_data": data_json,
                 "analysis_data": analysis_json
@@ -66,7 +56,6 @@ class FeedbackAgent:
             return result
             
         except Exception as e:
-            # Fallback: create basic feedback
             return Feedback(
                 general_feedback="Feedback generation could not be completed due to technical issues.",
                 experience_feedback="Unable to provide specific experience feedback.",
@@ -85,11 +74,8 @@ class FeedbackAgent:
                 return state
             
             state.processing_status = "generating_feedback"
-            
-            # Generate feedback
             feedback = self.generate_feedback(state.extracted_data, state.analysis_results)
             state.feedback = feedback
-            
             state.processing_status = "feedback_complete"
             return state
             

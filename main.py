@@ -1,17 +1,12 @@
 import streamlit as st
-from app.ui.components import render_left_section, render_right_section
+from app.ui.sections import render_left_section, render_right_section
 from app.utils.llm_config import validate_api_key
 from dotenv import load_dotenv
+from app.ui.session_state import initialize_session_state
 
 load_dotenv()
 
-def _initialize_session_state():
-    """Initialize session state."""
-    st.session_state.processing_status = 'pending'
-    st.session_state.file_uploaded = False
-    st.session_state.uploaded_file = None
-    st.session_state.cv_review_result = None
-    st.session_state.progress = 0
+
 
 def main():
     """Main Streamlit application."""
@@ -55,7 +50,7 @@ def main():
         st.info("Please set your ANTHROPIC_API_KEY in the .env file")
         st.stop()
 
-    _initialize_session_state()
+    initialize_session_state()
 
     # Main content area
     left_col, right_col = st.columns([1, 1])
@@ -65,5 +60,5 @@ def main():
     with right_col:
         render_right_section()
 
-if __name__ == "__main__"
-    main() 
+if __name__ == "__main__":
+    main()

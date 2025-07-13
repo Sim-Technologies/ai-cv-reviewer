@@ -1,12 +1,9 @@
-import json
-from typing import Dict, Any
-from langchain.output_parsers import JsonOutputParser
+from langchain_core.output_parsers import JsonOutputParser
 from langchain.prompts import PromptTemplate
 from app.models import ExtractedCVData, AnalysisResult, Feedback, Recommendation, CVReviewState
 from app.utils.llm_config import get_chat_model
 
 
-# Define the recommendation prompt template
 RECOMMENDATION_PROMPT = PromptTemplate(
     template="""You are an expert career development consultant and professional coach. Generate comprehensive recommendations for CV improvement and career development.
 
@@ -46,23 +43,16 @@ class RecommendationAgent:
     def __init__(self):
         self.llm = get_chat_model()
         self.parser = JsonOutputParser(pydantic_object=Recommendation)
-        
-        # Create prompt with format instructions
         self.prompt = RECOMMENDATION_PROMPT.partial(format_instructions=self.parser.get_format_instructions())
-        
-        # Create the chain
         self.chain = self.prompt | self.llm | self.parser
     
     def generate_recommendations(self, extracted_data: ExtractedCVData, analysis_results: AnalysisResult, feedback: Feedback) -> Recommendation:
         """Generate improvement recommendations and career guidance using JsonOutputParser."""
         
         try:
-            # Prepare data for recommendation generation
             data_json = extracted_data.model_dump_json()
             analysis_json = analysis_results.model_dump_json()
             feedback_json = feedback.model_dump_json()
-            
-            # Run the chain
             result = self.chain.invoke({
                 "cv_data": data_json,
                 "analysis_data": analysis_json,
@@ -72,7 +62,6 @@ class RecommendationAgent:
             return result
             
         except Exception as e:
-            # Fallback: create basic recommendations
             return Recommendation(
                 skill_development=["Focus on developing relevant technical and soft skills"],
                 experience_gaps=["Consider gaining more experience in key areas"],
@@ -90,8 +79,6 @@ class RecommendationAgent:
                 return state
             
             state.processing_status = "generating_recommendations"
-            
-            # Generate recommendations
             recommendations = self.generate_recommendations(
                 state.extracted_data, 
                 state.analysis_results, 

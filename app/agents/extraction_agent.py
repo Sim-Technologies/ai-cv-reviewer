@@ -1,13 +1,9 @@
-import json
-from typing import Dict, Any
-from langchain.schema import HumanMessage, SystemMessage
-from langchain.output_parsers import JsonOutputParser
+from langchain_core.output_parsers import JsonOutputParser
 from langchain.prompts import PromptTemplate
 from app.models import ExtractedCVData, CVReviewState
 from app.utils.llm_config import get_chat_model
 
 
-# Define the extraction prompt template
 EXTRACTION_PROMPT = PromptTemplate(
     template="""You are an expert CV parser. Extract structured information from the CV text and return it as a JSON object.
 
@@ -39,27 +35,19 @@ class ExtractionAgent:
     def __init__(self):
         self.llm = get_chat_model()
         self.parser = JsonOutputParser(pydantic_object=ExtractedCVData)
-        
-        # Create prompt with format instructions
         self.prompt = EXTRACTION_PROMPT.partial(format_instructions=self.parser.get_format_instructions())
-        
-        # Create the chain
         self.chain = self.prompt | self.llm | self.parser
     
     def extract_data(self, cv_text: str) -> ExtractedCVData:
         """Extract structured data from CV text using JsonOutputParser."""
         
         try:
-            # Run the chain
             result = self.chain.invoke({"cv_text": cv_text})
-            
-            # Ensure raw_text is included
             result.raw_text = cv_text
-            
+
             return result
             
         except Exception as e:
-            # Fallback: create basic structure with raw text
             return ExtractedCVData(
                 raw_text=cv_text,
                 name="Could not extract",
