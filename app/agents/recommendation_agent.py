@@ -71,22 +71,19 @@ class RecommendationAgent:
                 industry_trends=["Stay updated with industry developments"]
             )
     
-    def process(self, state: CVReviewState) -> CVReviewState:
+    def process(self, state: CVReviewState) -> dict:
         """Process the CV review state and generate recommendations."""
         try:
             if not state.extracted_data or not state.analysis_results or not state.feedback:
                 state.errors.append("Missing required data for recommendations")
                 return state
-            
-            state.processing_status = ProcessingStatus.GENERATING_RECOMMENDATIONS
+
             recommendations = self.generate_recommendations(
                 state.extracted_data, 
                 state.analysis_results, 
                 state.feedback
             )
             state.recommendations = recommendations
-            
-            state.processing_status = ProcessingStatus.RECOMMEND_COMPLETE
             return state
             
         except Exception as e:

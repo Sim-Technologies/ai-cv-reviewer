@@ -87,12 +87,23 @@ class CVReviewWorkflow:
         
         return workflow.compile()
     
+    def _map_node_name_to_processing_status(self, node_name: str) -> ProcessingStatus:
+        """Map node name to processing status."""
+        if node_name == "extract":
+            return ProcessingStatus.EXTRACTION_COMPLETE
+        elif node_name == "analyze":
+            return ProcessingStatus.ANALYSIS_COMPLETE
+        elif node_name == "feedback":
+            return ProcessingStatus.FEEDBACK_COMPLETE
+        elif node_name == "recommend":
+            return ProcessingStatus.RECOMMEND_COMPLETE
+    
     def _set_state_from_step(self, step: dict) -> None:
         """Set the state from a step."""
         for node_name, state_data in step.items():
-            for key, value in state_data.items():
-                setattr(self.state, key, value)
-
+            self.state = CVReviewState(**state_data)
+            status = self._map_node_name_to_processing_status(node_name)
+            self.state.processing_status = status
     
     async def _run_workflow(self) -> AsyncGenerator[CVReviewState, None]:
         """Run the CV review workflow."""
@@ -100,6 +111,7 @@ class CVReviewWorkflow:
             async for step in self._workflow.astream(self.state):
                 self._set_state_from_step(step)
                 yield self.state
+
         except Exception as e:
             print("Error", e)
             error_state = CVReviewState(

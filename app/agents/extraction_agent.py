@@ -62,14 +62,10 @@ class ExtractionAgent:
             if not state.file_content:
                 state.errors.append("No file content to extract")
                 return state
-            
-            state.processing_status = ProcessingStatus.EXTRACTING
-            
+
             # Extract structured data
             extracted_data = self.extract_data(state.file_content)
             state.extracted_data = extracted_data
-            
-            state.processing_status = ProcessingStatus.EXTRACTION_COMPLETE
             return state
             
         except Exception as e:

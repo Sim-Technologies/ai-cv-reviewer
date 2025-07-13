@@ -68,11 +68,9 @@ class AnalysisAgent:
             if not state.extracted_data:
                 state.errors.append("No extracted data to analyze")
                 return state
-            
-            state.processing_status = ProcessingStatus.ANALYZING
+
             analysis_results = self.analyze_data(state.extracted_data)
             state.analysis_results = analysis_results
-            state.processing_status = ProcessingStatus.ANALYSIS_COMPLETE
             return state
             
         except Exception as e:

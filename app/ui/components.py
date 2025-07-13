@@ -33,7 +33,7 @@ def dict_to_markdown(data: dict, indent: int = 0) -> str:
             # Simple value
             markdown_lines.append(f"{indent_str}**{formatted_key}:** {value}")
     
-    return "\n".join(markdown_lines)
+    return "\n\n".join(markdown_lines)
 
 
 
@@ -125,15 +125,15 @@ def render_analysis_results(analysis: AnalysisResult):
     st.subheader("📊 Analysis Results")
     
     # Overall score
-    col1, col2, col3 = st.columns(3)
+    col1, col2 = st.columns(2)
     with col1:
         st.metric("Overall Score", f"{analysis.overall_score:.1f}/100")
     with col2:
         if analysis.years_experience:
             st.metric("Years Experience", analysis.years_experience)
-    with col3:
-        if analysis.seniority_level:
-            st.metric("Seniority Level", analysis.seniority_level)
+
+    if analysis.seniority_level:
+        st.metric("Seniority Level", analysis.seniority_level)
     
     # Strengths and Weaknesses
     col1, col2 = st.columns(2)
@@ -256,25 +256,24 @@ def render_errors(errors: list):
 
 def render_download_button(state: CVReviewState):
     """Render download section for results."""
-    if state.processing_status == "complete":
-        st.subheader("💾 Download Results")
-        
-        # Prepare data for download
-        results_data = {
-            "file_name": state.file_name,
-            "extracted_data": state.extracted_data.model_dump() if state.extracted_data else None,
-            "analysis_results": state.analysis_results.model_dump() if state.analysis_results else None,
-            "feedback": state.feedback.model_dump() if state.feedback else None,
-            "recommendations": state.recommendations.model_dump() if state.recommendations else None,
-            "errors": state.errors
-        }
-        
-        # Create JSON download
-        json_str = json.dumps(results_data, indent=2, default=str)
-        st.download_button(
-            label="📥 Download Full Report (JSON)",
-            data=json_str,
-            file_name=f"cv_review_{state.file_name}.json",
-            mime="application/json"
-        )
+    st.subheader("💾 Download Results")
+    
+    # Prepare data for download
+    results_data = {
+        "file_name": state.file_name,
+        "extracted_data": state.extracted_data.model_dump() if state.extracted_data else None,
+        "analysis_results": state.analysis_results.model_dump() if state.analysis_results else None,
+        "feedback": state.feedback.model_dump() if state.feedback else None,
+        "recommendations": state.recommendations.model_dump() if state.recommendations else None,
+        "errors": state.errors
+    }
+    
+    # Create JSON download
+    json_str = json.dumps(results_data, indent=2, default=str)
+    st.download_button(
+        label="📥 Download Full Report (JSON)",
+        data=json_str,
+        file_name=f"cv_review_{state.file_name}.json",
+        mime="application/json"
+    )
 

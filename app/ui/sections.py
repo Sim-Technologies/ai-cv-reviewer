@@ -115,7 +115,7 @@ def render_complete_results_section(state: CVReviewState):
             
             if state.recommendations:
                 render_recommendations(state.recommendations)
-            
+
             # Download section
             render_download_button(state)
 

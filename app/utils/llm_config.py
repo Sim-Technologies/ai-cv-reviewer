@@ -1,7 +1,10 @@
 import os
 from langchain_anthropic import ChatAnthropic
+from dotenv import load_dotenv
 
-DEFAULT_MODEL = "claude-sonnet-4-20250514"
+load_dotenv()
+
+DEFAULT_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-20250514")
 
 def get_chat_model(model: str = DEFAULT_MODEL) -> ChatAnthropic:
     """Get LangChain ChatAnthropic model instance."""

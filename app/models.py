@@ -83,18 +83,11 @@ class Recommendation(BaseModel):
 class ProcessingStatus(str, Enum):
     PENDING = "pending"
     STARTED = "started"
-    PROCESSED_FILE_COMPLETE = "processed_file_complete"
 
-    EXTRACTING = "extracting"
+    PROCESSED_FILE_COMPLETE = "processed_file_complete"
     EXTRACTION_COMPLETE = "extraction_complete"
-    
-    ANALYZING = "analyzing"
     ANALYSIS_COMPLETE = "analysis_complete"
-    
-    GENERATING_FEEDBACK = "generating_feedback"
     FEEDBACK_COMPLETE = "feedback_complete"
-    
-    GENERATING_RECOMMENDATIONS = "generating_recommendations"
     RECOMMEND_COMPLETE = "recommend_complete"
     
     COMPLETED = "completed"

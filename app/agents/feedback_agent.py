@@ -72,11 +72,9 @@ class FeedbackAgent:
             if not state.extracted_data or not state.analysis_results:
                 state.errors.append("Missing extracted data or analysis results for feedback")
                 return state
-            
-            state.processing_status = ProcessingStatus.GENERATING_FEEDBACK
+
             feedback = self.generate_feedback(state.extracted_data, state.analysis_results)
             state.feedback = feedback
-            state.processing_status = ProcessingStatus.FEEDBACK_COMPLETE
             return state
             
         except Exception as e:
