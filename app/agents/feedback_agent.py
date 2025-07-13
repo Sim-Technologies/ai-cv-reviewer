@@ -1,18 +1,14 @@
 import json
 from typing import Dict, Any
-from langchain.schema import HumanMessage, SystemMessage
+from langchain.output_parsers import JsonOutputParser
+from langchain.prompts import PromptTemplate
 from app.models import ExtractedCVData, AnalysisResult, Feedback, CVReviewState
 from app.utils.llm_config import get_chat_model
 
 
-class FeedbackAgent:
-    def __init__(self):
-        self.llm = get_chat_model()
-    
-    def generate_feedback(self, extracted_data: ExtractedCVData, analysis_results: AnalysisResult) -> Feedback:
-        """Generate constructive feedback based on CV data and analysis."""
-        
-        system_prompt = """You are an expert career coach and CV reviewer. Generate constructive, actionable feedback based on the CV data and analysis.
+# Define the feedback prompt template
+FEEDBACK_PROMPT = PromptTemplate(
+    template="""You are an expert career coach and CV reviewer. Generate constructive, actionable feedback based on the CV data and analysis.
 
 Provide feedback in the following areas:
 1. General feedback: Overall impression and key observations
@@ -30,45 +26,44 @@ Guidelines:
 - Focus on improvement opportunities
 - Consider market trends and best practices
 
-Return ONLY valid JSON without any additional text or formatting."""
-
-        # Prepare data for feedback generation
-        data_json = extracted_data.model_dump_json()
-        analysis_json = analysis_results.model_dump_json()
-        
-        user_prompt = f"""Please generate comprehensive feedback for this CV:
-
 CV Data:
-{data_json}
+{cv_data}
 
 Analysis Results:
-{analysis_json}"""
+{analysis_data}
 
+{format_instructions}""",
+    input_variables=["cv_data", "analysis_data"],
+    partial_variables={"format_instructions": "{format_instructions}"}
+)
+
+
+class FeedbackAgent:
+    def __init__(self):
+        self.llm = get_chat_model()
+        self.parser = JsonOutputParser(pydantic_object=Feedback)
+        
+        # Create prompt with format instructions
+        self.prompt = FEEDBACK_PROMPT.partial(format_instructions=self.parser.get_format_instructions())
+        
+        # Create the chain
+        self.chain = self.prompt | self.llm | self.parser
+    
+    def generate_feedback(self, extracted_data: ExtractedCVData, analysis_results: AnalysisResult) -> Feedback:
+        """Generate constructive feedback based on CV data and analysis using JsonOutputParser."""
+        
         try:
-            messages = [
-                SystemMessage(content=system_prompt),
-                HumanMessage(content=user_prompt)
-            ]
+            # Prepare data for feedback generation
+            data_json = extracted_data.model_dump_json()
+            analysis_json = analysis_results.model_dump_json()
             
-            response = self.llm.invoke(messages)
-            content = response.content
+            # Run the chain
+            result = self.chain.invoke({
+                "cv_data": data_json,
+                "analysis_data": analysis_json
+            })
             
-            # Clean the response to extract JSON
-            if "```json" in content:
-                json_start = content.find("```json") + 7
-                json_end = content.find("```", json_start)
-                json_str = content[json_start:json_end].strip()
-            elif "```" in content:
-                json_start = content.find("```") + 3
-                json_end = content.find("```", json_start)
-                json_str = content[json_start:json_end].strip()
-            else:
-                json_str = content.strip()
-            
-            # Parse JSON and create Feedback object
-            feedback_dict = json.loads(json_str)
-            
-            return Feedback(**feedback_dict)
+            return result
             
         except Exception as e:
             # Fallback: create basic feedback

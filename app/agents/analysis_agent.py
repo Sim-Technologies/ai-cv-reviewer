@@ -1,18 +1,14 @@
 import json
 from typing import Dict, Any
-from langchain.schema import HumanMessage, SystemMessage
+from langchain.output_parsers import JsonOutputParser
+from langchain.prompts import PromptTemplate
 from app.models import ExtractedCVData, AnalysisResult, CVReviewState
 from app.utils.llm_config import get_chat_model
 
 
-class AnalysisAgent:
-    def __init__(self):
-        self.llm = get_chat_model()
-    
-    def analyze_data(self, extracted_data: ExtractedCVData) -> AnalysisResult:
-        """Analyze extracted CV data and provide insights."""
-        
-        system_prompt = """You are an expert CV analyst and career consultant. Analyze the CV data and provide comprehensive insights.
+# Define the analysis prompt template
+ANALYSIS_PROMPT = PromptTemplate(
+    template="""You are an expert CV analyst and career consultant. Analyze the CV data and provide comprehensive insights.
 
 Analyze the following aspects:
 1. Overall CV strength and market competitiveness
@@ -33,38 +29,37 @@ Provide a detailed analysis with:
 - Estimated years of experience
 - Suggested seniority level
 
-Return ONLY valid JSON without any additional text or formatting."""
+CV Data:
+{cv_data}
 
-        # Convert extracted data to JSON for analysis
-        data_json = extracted_data.model_dump_json()
+{format_instructions}""",
+    input_variables=["cv_data"],
+    partial_variables={"format_instructions": "{format_instructions}"}
+)
+
+
+class AnalysisAgent:
+    def __init__(self):
+        self.llm = get_chat_model()
+        self.parser = JsonOutputParser(pydantic_object=AnalysisResult)
         
-        user_prompt = f"Please analyze this CV data:\n\n{data_json}"
-
+        # Create prompt with format instructions
+        self.prompt = ANALYSIS_PROMPT.partial(format_instructions=self.parser.get_format_instructions())
+        
+        # Create the chain
+        self.chain = self.prompt | self.llm | self.parser
+    
+    def analyze_data(self, extracted_data: ExtractedCVData) -> AnalysisResult:
+        """Analyze extracted CV data and provide insights using JsonOutputParser."""
+        
         try:
-            messages = [
-                SystemMessage(content=system_prompt),
-                HumanMessage(content=user_prompt)
-            ]
+            # Convert extracted data to JSON for analysis
+            data_json = extracted_data.model_dump_json()
             
-            response = self.llm.invoke(messages)
-            content = response.content
+            # Run the chain
+            result = self.chain.invoke({"cv_data": data_json})
             
-            # Clean the response to extract JSON
-            if "```json" in content:
-                json_start = content.find("```json") + 7
-                json_end = content.find("```", json_start)
-                json_str = content[json_start:json_end].strip()
-            elif "```" in content:
-                json_start = content.find("```") + 3
-                json_end = content.find("```", json_start)
-                json_str = content[json_start:json_end].strip()
-            else:
-                json_str = content.strip()
-            
-            # Parse JSON and create AnalysisResult object
-            analysis_dict = json.loads(json_str)
-            
-            return AnalysisResult(**analysis_dict)
+            return result
             
         except Exception as e:
             # Fallback: create basic analysis
