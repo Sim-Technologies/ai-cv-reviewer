@@ -124,10 +124,6 @@ cv-reviewer/
 
 - `ANTHROPIC_API_KEY`: Your Anthropic API key (required)
 
-### File Size Limits
-
-- Default maximum file size: 10MB
-- Configurable through the UI sidebar
 
 ## 📊 Output Format
 
