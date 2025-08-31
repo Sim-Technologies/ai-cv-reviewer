@@ -5,7 +5,7 @@ services:
     build: .
     container_name: cv-reviewer-app
     ports:
-      - "3040:8000"
+      - "3040:8501"
     environment:
       - PYTHONUNBUFFERED=1
     command: streamlit run main.py
