@@ -1,0 +1,11 @@
+version: '3.9'
+
+services:
+  app:
+    build: .
+    container_name: cv-reviewer-app
+    ports:
+      - "8000:8000" # Adjust if your app uses a different port
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: python main.py # Adjust if your entrypoint is different
