@@ -8,4 +8,4 @@ services:
       - "3040:8000"
     environment:
       - PYTHONUNBUFFERED=1
-    command: python main.py
+    command: streamlit run main.py
